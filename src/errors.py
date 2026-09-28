@@ -21,3 +21,8 @@ class NotAvailable(YoutubeKitError):
 class MissingDependency(YoutubeKitError):
     """Required external dependency (ffmpeg) is missing (exit code 5)."""
     exit_code = 5
+
+
+class Cancelled(YoutubeKitError):
+    """The caller cancelled the operation; no partial file is left (exit code 130)."""
+    exit_code = 130

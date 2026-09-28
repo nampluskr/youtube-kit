@@ -102,6 +102,30 @@ res = yk.batch(urls, jobs, out_dir="outputs")
 print(f"ok={res['ok']}, reused={res['reused']}, failed={res['failed']}")
 ```
 
+### 진행률과 취소
+
+`video()` · `audio()` · `subtitle()` · `batch()`는 `progress`와 `cancel`을 받습니다. GUI처럼 다운로드를 다른 스레드에서 돌리며 진행 막대를 그리고 멈추는 데 씁니다.
+
+- `progress(event)`: `event["stage"]`는 `"download"` · `"merge"` · `"done"`이고, `downloaded_bytes` · `total_bytes` · `speed` · `eta`가 함께 옵니다(모르면 `None`). `batch()`는 `index` · `total`을 더합니다.
+- `cancel`: `threading.Event`를 넘기고 `set()`하면 `yk.Cancelled`가 납니다. 받던 파일과 임시 폴더는 남지 않습니다.
+
+```python
+import threading
+
+stop = threading.Event()
+
+def on_progress(e):
+    if e["stage"] == "download" and e["total_bytes"]:
+        print(f"{e['downloaded_bytes'] / e['total_bytes']:.0%}")
+
+try:
+    yk.audio("bWPXADZylm0", audio="140-1", out_dir="outputs", progress=on_progress, cancel=stop)
+except yk.Cancelled:
+    print("취소됨")
+```
+
+yt-dlp가 스스로 찍던 `ERROR:` · `WARNING:` 줄은 stderr로 나가지 않습니다. 같은 내용은 예외 메시지와 `logging.getLogger("youtube_kit")`(debug 수준)에 있습니다.
+
 ---
 
 ## CLI 사용법
@@ -171,6 +195,7 @@ youtube-kit batch jobs.jsonl [-o DIR] [--overwrite] [--json]
 | 4 | 요청한 것이 없음 (없는 포맷·트랙, 라이브 등) | `NotAvailable` | `video` · `audio` · `subtitle` |
 | 5 | 실행 환경 부족 (ffmpeg 없음) | `MissingDependency` | `video` |
 | 6 | 일괄 수행 중 하나 이상 실패 | — | `batch` |
+| 130 | 취소됨 (Ctrl+C). 받던 파일은 남지 않음 | `Cancelled` | 전부 |
 
 ---
 

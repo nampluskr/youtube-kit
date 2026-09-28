@@ -4,8 +4,12 @@ import contextlib
 import io
 import json
 import os
+import tempfile
+import threading
 import unittest
 from unittest import mock
+
+import yt_dlp
 
 import youtube_kit as yk
 from youtube_kit import cli, core
@@ -81,6 +85,99 @@ class TestCliArgv(unittest.TestCase):
         out = json.loads(buf.getvalue())
         self.assertEqual(out["error"], "InvalidInput")
         self.assertIsNone(out["video_id"])
+
+
+class TestProgressAndCancel(unittest.TestCase):
+
+    def test_download_hook_maps_to_event(self):
+        events = []
+        tracker = core._Tracker("vid00000000", progress=events.append)
+        tracker.on_download({"status": "downloading", "downloaded_bytes": 10,
+                             "total_bytes_estimate": 100, "speed": 5.0, "eta": 18})
+        tracker.on_postprocess({"postprocessor": "Merger", "status": "started"})
+        tracker.emit("done")
+        self.assertEqual(events[0], {"video_id": "vid00000000", "stage": "download",
+                                     "downloaded_bytes": 10, "total_bytes": 100,
+                                     "speed": 5.0, "eta": 18})
+        self.assertEqual([e["stage"] for e in events], ["download", "merge", "done"])
+
+    def test_broken_callback_does_not_break_download(self):
+        def boom(event):
+            raise RuntimeError("callback bug")
+        tracker = core._Tracker("vid00000000", progress=boom)
+        tracker.on_download({"status": "downloading", "downloaded_bytes": 1})  # no raise
+
+    def test_cancel_in_hook(self):
+        stop = threading.Event()
+        stop.set()
+        tracker = core._Tracker("vid00000000", cancel=stop)
+        with self.assertRaises(yt_dlp.utils.DownloadCancelled):
+            tracker.on_download({"status": "downloading"})
+        self.assertTrue(tracker.cancelled)
+
+    def test_cancel_after_lookup_raises_cancelled(self):
+        stop = threading.Event()
+
+        def lookup(url, opts=None):
+            stop.set()  # cancelled while the lookup was running
+            return {"formats": [{"format_id": "140", "ext": "m4a", "acodec": "mp4a.40.2"}]}
+
+        with mock.patch("youtube_kit.core._extract_info_safe", side_effect=lookup), \
+                tempfile.TemporaryDirectory() as d:
+            with self.assertRaises(yk.Cancelled):
+                yk.audio("bWPXADZylm0", audio="140", out_dir=d, cancel=stop)
+            self.assertEqual(os.listdir(d), [])
+
+    def test_batch_cancel_raises_and_keeps_finished_items(self):
+        calls = []
+
+        def fake_audio(url, audio, **kwargs):
+            calls.append(url)
+            if len(calls) == 2:
+                raise yk.Cancelled("stop")
+            return {"status": "ok", "video_id": "bWPXADZylm0", "url": url, "path": "x.m4a"}
+
+        with mock.patch("youtube_kit.core.audio", side_effect=fake_audio):
+            with self.assertRaises(yk.Cancelled):
+                yk.batch(["bWPXADZylm0", "xyTPUdJhxLM", "VbD8ITrJ6lg"],
+                         [{"do": "audio", "audio": "140"}] * 3)
+        self.assertEqual(len(calls), 2)  # the third item never ran
+
+    def test_batch_progress_adds_index_and_total(self):
+        events = []
+
+        def fake_audio(url, audio, progress=None, **kwargs):
+            progress({"video_id": "v", "stage": "done"})
+            return {"status": "ok", "video_id": "v", "url": url, "path": "x.m4a"}
+
+        with mock.patch("youtube_kit.core.audio", side_effect=fake_audio):
+            yk.batch(["bWPXADZylm0", "xyTPUdJhxLM"], [{"do": "audio", "audio": "140"}] * 2,
+                     progress=events.append)
+        self.assertEqual([(e["index"], e["total"]) for e in events], [(0, 2), (1, 2)])
+
+    def test_cli_ctrl_c_exits_130(self):
+        buf = io.StringIO()
+        with mock.patch("youtube_kit.cli.audio", side_effect=KeyboardInterrupt), \
+                contextlib.redirect_stdout(buf), self.assertRaises(SystemExit) as ctx:
+            cli.main(["audio", "bWPXADZylm0", "--audio", "140", "--json"])
+        self.assertEqual(ctx.exception.code, 130)
+        out = json.loads(buf.getvalue())
+        self.assertEqual(out["error"], "Cancelled")
+        self.assertEqual(out["video_id"], "bWPXADZylm0")
+
+    def test_cancelled_exit_code(self):
+        self.assertEqual(yk.Cancelled.exit_code, 130)
+        self.assertTrue(issubclass(yk.Cancelled, yk.YoutubeKitError))
+
+
+class TestQuietLogger(unittest.TestCase):
+
+    def test_yt_dlp_messages_do_not_reach_stderr(self):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            core._QUIET.error("ERROR: [youtube] x: Private video")
+            core._QUIET.warning("WARNING: something")
+        self.assertEqual(err.getvalue(), "")
 
 
 if __name__ == "__main__":

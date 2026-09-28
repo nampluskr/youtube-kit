@@ -130,6 +130,33 @@
 - **결과·검증:** 복사본과 원본 137개 파일 동일 확인 후 원본 삭제. editable 설치를 새 위치로 옮겨
   `youtube_downloader --help` 동작 확인 (`youtube_library` 인제스트가 아직 사용)
 
+### 진행률 콜백 · 취소 · stderr 정리 (2026-09-28, Claude — v0.1 마감 뒤)
+
+> v0.1 마감·태그(`5b21b20`) 뒤에 사용자 요청으로 추가한 작업이다. `docs/history/v0.1/`과 태그 `v0.1`은
+> 그대로이고, 이 기록은 `docs/current/`에만 있다. 새 공개 인자와 예외를 DECISIONS의 결정으로 남길지는
+> v0.2 착수 때 사람이 정한다.
+
+- **요청:** 별도 Windows GUI 앱이 youtube-kit API를 같은 프로세스에서 쓸 수 있도록 진행률 콜백, 취소,
+  yt-dlp stderr 소음 정리를 넣는다.
+- **조치:**
+  - `video()` · `audio()` · `subtitle()` · `batch()`에 키워드 인자 `progress` · `cancel` 추가 (기본값 `None`, 기존 호출 불변)
+    - 이벤트 `{video_id, stage: download|merge|done, downloaded_bytes, total_bytes, speed, eta}`, batch는 `index` · `total` 추가
+    - 콜백의 예외는 삼켜 다운로드를 깨지 않는다
+  - 새 예외 `Cancelled(YoutubeKitError)`, 종료 코드 130. batch는 진행 중인 줄에서 멈추고 `Cancelled`를 던진다
+  - CLI: Ctrl+C를 종료 코드 130, `--json`이면 `error: "Cancelled"`로 끝낸다
+  - yt-dlp에 조용한 `logger`를 넘겨 `ERROR:` · `WARNING:` 줄이 stderr로 나가지 않게 했다 (`logging.getLogger("youtube_kit")` debug로 보냄)
+  - `src/core.py`: 세 다운로드 함수에 중복돼 있던 yt-dlp 실행·결과 이동을 `_run_download()` · `_move_result()`로 묶었다
+  - 문서: `docs/refs/SKELETON.md` 1.1 시그니처·예외 트리·종료 코드 130, README "진행률과 취소" 절과 종료 코드 표
+  - 테스트: `tests/test_offline.py`에 9건 추가, `03_audio` 노트북에 진행률·취소 셀 2개 추가
+- **결과:** v0.1 마감 요약의 "다음 버전으로" 중 "yt-dlp가 stderr에 `ERROR:`를 찍는 소음"이 해결됐다.
+- **검증:**
+  - 실제 다운로드(T-5 음성)에서 `download` 이벤트 13개 뒤 `done`. 첫 `download` 이벤트에서 취소하면 `Cancelled`가 나고
+    최종 파일·임시 폴더가 남지 않음
+  - `youtube-kit info Et9xVTOjgko`(비공개)의 stderr가 우리 오류 한 줄뿐임
+  - 노트북 01~05를 `youtube-kit` 커널(`jupyter_client`)로 실행해 모두 통과. 03은 한 번 `HTTP 403`(YouTube 일시 거부)으로
+    실패한 뒤 재실행에서 통과
+  - `unittest` 48건 전부 통과 (네트워크 테스트 31 + 오프라인 17)
+
 ## 3. v0.1 마감 요약 (2026-09-28)
 
 | 항목 | 내용 |

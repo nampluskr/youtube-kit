@@ -305,6 +305,23 @@ def main(argv=None):
             sys.stderr.write(f"Error ({exc_name}): {exc}\n")
         sys.exit(exit_code)
 
+    except KeyboardInterrupt:
+        # Ctrl+C: the temporary download directory is removed on the way out,
+        # so this ends like a Cancelled with no partial file.
+        message = "Cancelled by user (Ctrl+C)"
+        if args.json:
+            err_data = {
+                "status": "error",
+                "video_id": video_id,
+                "url": std_url,
+                "error": "Cancelled",
+                "message": message,
+            }
+            sys.stdout.write(json.dumps(err_data, ensure_ascii=False) + "\n")
+        else:
+            sys.stderr.write(f"Error (Cancelled): {message}\n")
+        sys.exit(130)
+
     except Exception as exc:
         if args.json:
             err_data = {

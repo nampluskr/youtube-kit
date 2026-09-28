@@ -1,5 +1,6 @@
 from youtube_kit.core import audio, batch, info, subtitle, video
 from youtube_kit.errors import (
+    Cancelled,
     InvalidInput,
     MissingDependency,
     NotAvailable,
@@ -20,5 +21,6 @@ __all__ = [
     "VideoUnavailable",
     "NotAvailable",
     "MissingDependency",
+    "Cancelled",
 ]
 

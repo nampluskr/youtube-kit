@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import shutil
@@ -8,6 +9,7 @@ from datetime import datetime
 import yt_dlp
 
 from youtube_kit.errors import (
+    Cancelled,
     InvalidInput,
     MissingDependency,
     NotAvailable,
@@ -61,12 +63,118 @@ def _handle_download_error(exc: Exception):
     raise YoutubeKitError(str(exc)) from exc
 
 
+_log = logging.getLogger("youtube_kit")
+
+
+class _QuietLogger:
+    """yt-dlp logger that keeps its messages off stderr.
+
+    yt-dlp prints "ERROR: ..." itself even with quiet=True. The same text is
+    already carried by the exception youtube-kit raises, so it only goes to the
+    "youtube_kit" logger at debug level.
+    """
+
+    def debug(self, msg):
+        _log.debug(msg)
+
+    info = warning = error = debug
+
+
+_QUIET = _QuietLogger()
+
+
+def _quiet_opts(**extra) -> dict:
+    return {"quiet": True, "no_warnings": True, "noprogress": True, "logger": _QUIET, **extra}
+
+
+class _Tracker:
+    """Reports progress to the caller's callback and honours its cancel flag."""
+
+    def __init__(self, video_id, progress=None, cancel=None):
+        self.video_id = video_id
+        self.progress = progress
+        self.cancel = cancel
+        self.cancelled = False
+
+    def _cancel_requested(self) -> bool:
+        if self.cancel is not None and self.cancel.is_set():
+            self.cancelled = True
+        return self.cancelled
+
+    def check(self):
+        if self._cancel_requested():
+            raise Cancelled(f"Cancelled by caller: {self.video_id}")
+
+    def emit(self, stage, downloaded_bytes=None, total_bytes=None, speed=None, eta=None):
+        if self.progress is None:
+            return
+        event = {
+            "video_id": self.video_id,
+            "stage": stage,
+            "downloaded_bytes": downloaded_bytes,
+            "total_bytes": total_bytes,
+            "speed": speed,
+            "eta": eta,
+        }
+        try:
+            self.progress(event)
+        except Exception:
+            # A broken callback must not break the download itself.
+            _log.debug("progress callback raised", exc_info=True)
+
+    def on_download(self, d):
+        if self._cancel_requested():
+            raise yt_dlp.utils.DownloadCancelled(f"Cancelled by caller: {self.video_id}")
+        if d.get("status") == "downloading":
+            self.emit(
+                "download",
+                d.get("downloaded_bytes"),
+                d.get("total_bytes") or d.get("total_bytes_estimate"),
+                d.get("speed"),
+                d.get("eta"),
+            )
+
+    def on_postprocess(self, d):
+        if self._cancel_requested():
+            raise yt_dlp.utils.DownloadCancelled(f"Cancelled by caller: {self.video_id}")
+        if d.get("postprocessor") == "Merger" and d.get("status") == "started":
+            self.emit("merge")
+
+    def ydl_opts(self) -> dict:
+        return {"progress_hooks": [self.on_download], "postprocessor_hooks": [self.on_postprocess]}
+
+
+def _run_download(std_url: str, opts: dict, tracker: _Tracker):
+    """Run a yt-dlp download, turning a cancel from the hooks into Cancelled."""
+    try:
+        with yt_dlp.YoutubeDL({**_quiet_opts(), **tracker.ydl_opts(), **opts}) as ydl:
+            ydl.download([std_url])
+    except yt_dlp.utils.DownloadCancelled as exc:
+        raise Cancelled(str(exc)) from exc
+    except yt_dlp.utils.DownloadError as exc:
+        # yt-dlp may wrap the cancel raised in a hook; the tracker knows.
+        if tracker.cancelled:
+            raise Cancelled(f"Cancelled by caller: {tracker.video_id}") from exc
+        _handle_download_error(exc)
+    except Exception as exc:
+        if tracker.cancelled:
+            raise Cancelled(f"Cancelled by caller: {tracker.video_id}") from exc
+        raise YoutubeKitError(str(exc)) from exc
+
+
+def _move_result(tmp_dir: str, final_path: str, what: str):
+    candidates = [
+        os.path.join(tmp_dir, f)
+        for f in os.listdir(tmp_dir)
+        if not f.endswith(".part") and not f.endswith(".ytdl")
+    ]
+    if not candidates:
+        raise YoutubeKitError(f"Download finished but no {what} file was produced")
+    shutil.move(candidates[0], final_path)
+
+
 def _extract_info_safe(url: str, opts: dict | None = None) -> dict:
-    base_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "noprogress": True,
-    }
+    base_opts = _quiet_opts()
     if opts:
         base_opts.update(opts)
     try:
@@ -274,10 +382,14 @@ def video(
     container: str | None = None,
     out_dir: str | None = None,
     overwrite: bool = False,
+    progress=None,
+    cancel=None,
 ) -> dict:
     """UC-2. video/audio: format IDs (required, no default).
     container: "mp4" | "mkv" | None. None -> mp4 if both streams fit mp4,
     otherwise mkv. Needs ffmpeg. Live streams raise NotAvailable.
+    progress: callable(dict) receiving download/merge/done events.
+    cancel: object with is_set(); when set, raises Cancelled and leaves no file.
     """
     if not video or not isinstance(video, str):
         raise InvalidInput("Missing or invalid 'video' format ID")
@@ -293,6 +405,9 @@ def video(
     if not shutil.which("ffmpeg"):
         raise MissingDependency("ffmpeg is required for merging video and audio streams")
 
+    tracker = _Tracker(video_id, progress, cancel)
+    tracker.check()
+
     dest_dir = out_dir if out_dir is not None else "."
     os.makedirs(dest_dir, exist_ok=True)
 
@@ -303,6 +418,7 @@ def video(
             "skip_download": True,
         },
     )
+    tracker.check()
 
     if raw_info.get("is_live"):
         raise NotAvailable("Cannot download live streams")
@@ -352,38 +468,18 @@ def video(
             "path": final_path,
         }
 
-    # Perform download into temporary directory, then move to final_path
+    # Download into a temporary directory, then move to final_path. On cancel or
+    # error the directory is removed, so no partial file is left behind.
     with tempfile.TemporaryDirectory(dir=dest_dir) as tmp_dir:
-        tmp_template = os.path.join(tmp_dir, f"{video_id}.%(ext)s")
-        opts = {
-            "quiet": True,
-            "no_warnings": True,
-            "noprogress": True,
+        _run_download(std_url, {
             "format": f"{video}+{audio}",
             "merge_output_format": target_container,
-            "outtmpl": tmp_template,
-        }
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([std_url])
-        except yt_dlp.utils.DownloadError as exc:
-            _handle_download_error(exc)
-        except Exception as exc:
-            raise YoutubeKitError(str(exc)) from exc
+            "outtmpl": os.path.join(tmp_dir, f"{video_id}.%(ext)s"),
+        }, tracker)
+        tracker.check()
+        _move_result(tmp_dir, final_path, "merged")
 
-        # Find produced merged file
-        candidates = [
-            os.path.join(tmp_dir, f)
-            for f in os.listdir(tmp_dir)
-            if not f.endswith(".part") and not f.endswith(".ytdl")
-        ]
-        if not candidates:
-            raise YoutubeKitError("Download finished but no output file was produced")
-
-        created_file = candidates[0]
-        # Atomic move to final destination
-        shutil.move(created_file, final_path)
-
+    tracker.emit("done")
     return {
         "status": "ok",
         "video_id": video_id,
@@ -397,9 +493,11 @@ def audio(
     audio: str,
     out_dir: str | None = None,
     overwrite: bool = False,
+    progress=None,
+    cancel=None,
 ) -> dict:
     """UC-3. audio: format ID (required). Saved as-is, no conversion.
-    Live streams raise NotAvailable.
+    Live streams raise NotAvailable. progress/cancel: see video().
     """
     if not audio or not isinstance(audio, str):
         raise InvalidInput("Missing or invalid 'audio' format ID")
@@ -407,6 +505,9 @@ def audio(
     url_type, std_url, video_id = parse_and_normalize_url(url)
     if url_type != "video":
         raise InvalidInput("audio() expects a video URL or ID, not a playlist")
+
+    tracker = _Tracker(video_id, progress, cancel)
+    tracker.check()
 
     dest_dir = out_dir if out_dir is not None else "."
     os.makedirs(dest_dir, exist_ok=True)
@@ -417,6 +518,7 @@ def audio(
             "skip_download": True,
         },
     )
+    tracker.check()
 
     if raw_info.get("is_live"):
         raise NotAvailable("Cannot download live streams")
@@ -440,33 +542,14 @@ def audio(
         }
 
     with tempfile.TemporaryDirectory(dir=dest_dir) as tmp_dir:
-        tmp_template = os.path.join(tmp_dir, f"{video_id}.%(ext)s")
-        opts = {
-            "quiet": True,
-            "no_warnings": True,
-            "noprogress": True,
+        _run_download(std_url, {
             "format": str(audio),
-            "outtmpl": tmp_template,
-        }
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([std_url])
-        except yt_dlp.utils.DownloadError as exc:
-            _handle_download_error(exc)
-        except Exception as exc:
-            raise YoutubeKitError(str(exc)) from exc
+            "outtmpl": os.path.join(tmp_dir, f"{video_id}.%(ext)s"),
+        }, tracker)
+        tracker.check()
+        _move_result(tmp_dir, final_path, "audio")
 
-        candidates = [
-            os.path.join(tmp_dir, f)
-            for f in os.listdir(tmp_dir)
-            if not f.endswith(".part") and not f.endswith(".ytdl")
-        ]
-        if not candidates:
-            raise YoutubeKitError("Download finished but no audio file was produced")
-
-        created_file = candidates[0]
-        shutil.move(created_file, final_path)
-
+    tracker.emit("done")
     return {
         "status": "ok",
         "video_id": video_id,
@@ -481,9 +564,13 @@ def subtitle(
     fmt: str = "srt",
     out_dir: str | None = None,
     overwrite: bool = False,
+    progress=None,
+    cancel=None,
 ) -> dict:
     """UC-4. track: "<kind>:<youtube key>", e.g. "manual:ko", "auto:ko-orig".
     Saved as-is in the requested format, no conversion or cleanup.
+    progress/cancel: see video(). yt-dlp may report no download events for
+    subtitles, so only "done" is guaranteed.
     """
     if not track or not isinstance(track, str) or ":" not in track:
         raise InvalidInput("track must be formatted as '<kind>:<youtube key>', e.g. 'manual:ko'")
@@ -498,6 +585,9 @@ def subtitle(
     if url_type != "video":
         raise InvalidInput("subtitle() expects a video URL or ID, not a playlist")
 
+    tracker = _Tracker(video_id, progress, cancel)
+    tracker.check()
+
     dest_dir = out_dir if out_dir is not None else "."
     os.makedirs(dest_dir, exist_ok=True)
 
@@ -507,6 +597,7 @@ def subtitle(
             "skip_download": True,
         },
     )
+    tracker.check()
 
     sub_map = (raw_info.get("subtitles") or {}) if kind == "manual" else (raw_info.get("automatic_captions") or {})
     if key not in sub_map:
@@ -530,38 +621,19 @@ def subtitle(
         }
 
     with tempfile.TemporaryDirectory(dir=dest_dir) as tmp_dir:
-        tmp_template = os.path.join(tmp_dir, f"{video_id}.%(ext)s")
-        opts = {
-            "quiet": True,
-            "no_warnings": True,
-            "noprogress": True,
+        _run_download(std_url, {
             "skip_download": True,
             "writesubtitles": (kind == "manual"),
             "writeautomaticsub": (kind == "auto"),
             # yt-dlp treats each entry as a regex; match the key literally
             "subtitleslangs": [re.escape(key)],
             "subtitlesformat": fmt,
-            "outtmpl": tmp_template,
-        }
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([std_url])
-        except yt_dlp.utils.DownloadError as exc:
-            _handle_download_error(exc)
-        except Exception as exc:
-            raise YoutubeKitError(str(exc)) from exc
+            "outtmpl": os.path.join(tmp_dir, f"{video_id}.%(ext)s"),
+        }, tracker)
+        tracker.check()
+        _move_result(tmp_dir, final_path, f"subtitle ({track})")
 
-        candidates = [
-            os.path.join(tmp_dir, f)
-            for f in os.listdir(tmp_dir)
-            if not f.endswith(".part") and not f.endswith(".ytdl")
-        ]
-        if not candidates:
-            raise YoutubeKitError(f"yt-dlp reported no subtitle file for {track}")
-
-        created_file = candidates[0]
-        shutil.move(created_file, final_path)
-
+    tracker.emit("done")
     return {
         "status": "ok",
         "video_id": video_id,
@@ -582,10 +654,14 @@ def batch(
     jobs: list[dict],
     out_dir: str | None = None,
     overwrite: bool = False,
+    progress=None,
+    cancel=None,
 ) -> dict:
     """UC-5. jobs[i] applies to urls[i]. do: "video" | "audio" | "subtitle".
     Runs sequentially; a failed item does not stop the rest and is reported
     in the result, not raised.
+    progress: events of each item, with "index" and "total" added.
+    cancel: stops the running item and raises Cancelled; finished items' files stay.
     """
     if not isinstance(urls, (list, tuple)) or not isinstance(jobs, (list, tuple)):
         raise InvalidInput("urls and jobs must be lists")
@@ -617,7 +693,12 @@ def batch(
     reused_count = 0
     failed_count = 0
 
-    for url, job in zip(urls, jobs):
+    def item_progress(index):
+        if progress is None:
+            return None
+        return lambda event: progress({**event, "index": index, "total": len(urls)})
+
+    for index, (url, job) in enumerate(zip(urls, jobs)):
         do = job.get("do")
         video_id = None
         std_url = url
@@ -626,6 +707,12 @@ def batch(
         except Exception:
             pass
 
+        common = {
+            "out_dir": out_dir,
+            "overwrite": overwrite,
+            "progress": item_progress(index),
+            "cancel": cancel,
+        }
         try:
             if do == "video":
                 res = video(
@@ -633,24 +720,12 @@ def batch(
                     video=job.get("video"),
                     audio=job.get("audio"),
                     container=job.get("container"),
-                    out_dir=out_dir,
-                    overwrite=overwrite,
+                    **common,
                 )
             elif do == "audio":
-                res = audio(
-                    url,
-                    audio=job.get("audio"),
-                    out_dir=out_dir,
-                    overwrite=overwrite,
-                )
+                res = audio(url, audio=job.get("audio"), **common)
             elif do == "subtitle":
-                res = subtitle(
-                    url,
-                    track=job.get("track"),
-                    fmt=job.get("fmt", "srt"),
-                    out_dir=out_dir,
-                    overwrite=overwrite,
-                )
+                res = subtitle(url, track=job.get("track"), fmt=job.get("fmt", "srt"), **common)
 
             status = res["status"]
             if status == "ok":
@@ -666,6 +741,9 @@ def batch(
                 "path": res["path"],
             })
 
+        except Cancelled:
+            # A cancel stops the whole batch; it is not an item failure.
+            raise
         except YoutubeKitError as exc:
             failed_count += 1
             items.append({

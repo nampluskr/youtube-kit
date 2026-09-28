@@ -42,24 +42,37 @@ def info(url, out_dir=None) -> dict
     Playlist URL -> writes <list-id>.playlist.json, returns its content.
     Downloads no video, audio or subtitle."""
 
-def video(url, video, audio, container=None, out_dir=None, overwrite=False) -> dict
+def video(url, video, audio, container=None, out_dir=None, overwrite=False,
+          progress=None, cancel=None) -> dict
     """UC-2. video/audio: format IDs (required, no default).
     container: "mp4" | "mkv" | None. None -> mp4 if both streams fit mp4,
     otherwise mkv. Needs ffmpeg. Live streams raise NotAvailable."""
 
-def audio(url, audio, out_dir=None, overwrite=False) -> dict
+def audio(url, audio, out_dir=None, overwrite=False, progress=None, cancel=None) -> dict
     """UC-3. audio: format ID (required). Saved as-is, no conversion.
     Live streams raise NotAvailable."""
 
-def subtitle(url, track, fmt="srt", out_dir=None, overwrite=False) -> dict
+def subtitle(url, track, fmt="srt", out_dir=None, overwrite=False,
+             progress=None, cancel=None) -> dict
     """UC-4. track: "<kind>:<youtube key>", e.g. "manual:ko", "auto:ko-orig".
     Saved as-is in the requested format, no conversion or cleanup."""
 
-def batch(urls, jobs, out_dir=None, overwrite=False) -> dict
+def batch(urls, jobs, out_dir=None, overwrite=False, progress=None, cancel=None) -> dict
     """UC-5. jobs[i] applies to urls[i]. do: "video" | "audio" | "subtitle".
     Runs sequentially; a failed item does not stop the rest and is reported
-    in the result, not raised."""
+    in the result, not raised. A cancel raises Cancelled."""
 ```
+
+`progress` · `cancel` (v0.1 마감 뒤 계획 외 추가, 2026-09-28) — 수행을 관찰·제어할 뿐 무엇을 받을지는 바꾸지 않는다.
+
+- `progress`: `callable(dict)`. 이벤트는 `{"video_id", "stage", "downloaded_bytes", "total_bytes", "speed", "eta"}`,
+  `stage`는 `"download"` · `"merge"`(`video()`만) · `"done"`. 모르는 값은 `null`. `batch()`는 `"index"`(0부터) ·
+  `"total"`을 더한다. `subtitle()`은 `"done"`만 보장한다. 콜백의 예외는 다운로드를 멈추지 않는다
+- `cancel`: `is_set()`을 가진 객체(`threading.Event`). 시작·조회 뒤·다운로드 중에 확인하고, set이면 `Cancelled`를
+  던진다. 받던 파일과 임시 폴더는 남지 않는다. `batch()`는 진행 중인 줄에서 멈추고 `Cancelled`를 던지며,
+  이미 끝난 줄의 파일은 남는다
+- yt-dlp가 스스로 찍던 `ERROR:` · `WARNING:` 줄은 stderr로 나가지 않는다. 같은 내용은 예외 메시지와
+  `logging.getLogger("youtube_kit")`(debug)에 있다
 
 - `url`은 영상 URL, 재생목록 URL, 11자리 영상 ID를 받고, 받자마자 표준 URL로 바꾼다.
   재생목록 URL은 `info()`만 받는다
@@ -194,7 +207,8 @@ YoutubeKitError                  # 그 밖의 오류 (네트워크·다운로드
  ├─ NotAvailable                 # 이 영상에 없는 포맷 ID·트랙 ID·자막 형식,
  │                               # 지정한 컨테이너에 합칠 수 없는 조합,
  │                               # 라이브 방송 중인 영상의 video()·audio()
- └─ MissingDependency            # video()에서 ffmpeg를 찾을 수 없음
+ ├─ MissingDependency            # video()에서 ffmpeg를 찾을 수 없음
+ └─ Cancelled                    # 호출하는 쪽이 cancel을 set함 (CLI는 Ctrl+C)
 ```
 
 ---
@@ -232,6 +246,7 @@ youtube-kit batch    <jobs.jsonl> [-o DIR] [--overwrite] [--json]
 | 4 | 요청한 것이 없음 | `NotAvailable` | `video` · `audio` · `subtitle` |
 | 5 | 실행 환경 부족 | `MissingDependency` | `video` |
 | 6 | 일괄 수행 중 하나 이상 실패 | — | `batch` |
+| 130 | 취소됨 (Ctrl+C). 받던 파일은 남지 않는다 | `Cancelled` | 전부 |
 
 ---
 
