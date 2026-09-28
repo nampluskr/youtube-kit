@@ -13,6 +13,16 @@ Claude Code는 `CLAUDE.md`를 읽는다. 이 파일은 그 외 에이전트를 �
 | `README.md` · `CLAUDE.md` · `.claude/` | 프로젝트 전체 | 영구 |
 | `src/` · `scripts/` · `tests/` | 코드 | — |
 
+## 실행 환경
+
+| 항목 | 값 |
+| --- | --- |
+| 파이썬 | `C:\winpython\WPy64-31180_cpu\python-3.11.8.amd64\python.exe` (WinPython cpu, 3.11.8). PATH의 `python`은 Microsoft Store 바로 가기라 쓰지 않는다 |
+| 패키지 설치 | 위 파이썬으로 `-m pip install -e .` (editable) |
+| 노트북 커널 | `youtube-kit` (표시 이름 "Python 3.11 (WinPython cpu)") |
+| 테스트 | 위 파이썬으로 `-m unittest discover tests` |
+| 외부 도구 | ffmpeg (PATH, `video`에 필요) |
+
 ## 하지 않을 것
 
 - `docs/current/`의 문서(`INTENT`·`BRIEF`·`DECISIONS`·`SPEC`·`PLAN`·`backlog.json`)를 고치지 않는다. **사람이 쓴다**

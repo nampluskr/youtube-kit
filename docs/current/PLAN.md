@@ -3,7 +3,7 @@
 # PLAN — youtube-kit
 
 Phase는 층 순서로 나눈다 (DECISIONS D-17). SPEC을 두지 않으므로 대응 요구는 `BRIEF.md`
-5절 완료 조건을 가리킨다 (D-16). 테스트 URL T-n은 `docs/SCENARIOS.md` "테스트용 URL"의
+5절 완료 조건을 가리킨다 (D-16). 테스트 URL T-n은 `docs/refs/SCENARIOS.md` "테스트용 URL"의
 번호이며, 포맷 ID·트랙 ID는 매번 `info()`로 확인한 값을 쓴다.
 
 ## Phase 1
@@ -19,7 +19,7 @@ T-1 ~ T-20이 기대 결과대로 동작한다(일괄 수행 부분 제외).
 - `notebooks\01_info.ipynb` ~ `04_subtitle.ipynb`가 처음부터 끝까지 오류 없이 실행된다
 - 네 노트북이 T-1 ~ T-17, T-19, T-20과 T-18의 재생목록 조회를 다루고, 각 행의 기대 결과를
   확인한다
-- 만든 파일 이름이 `docs/SKELETON.md` 3절 표와 일치하고, 다운로드 뒤 출력 폴더에 임시
+- 만든 파일 이름이 `docs/refs/SKELETON.md` 3절 표와 일치하고, 다운로드 뒤 출력 폴더에 임시
   파일이 남지 않는다
 
 ## Phase 2

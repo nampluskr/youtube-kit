@@ -61,7 +61,7 @@
 
 - 노트북에서 `import youtube_kit as yk`로 정보 확인, 동영상·음성·자막 받기, 일괄 수행을
   모두 할 수 있다.
-- `docs/SCENARIOS.md`의 테스트 URL T-1 ~ T-20이 각 행의 기대 결과대로 동작한다.
+- `docs/refs/SCENARIOS.md`의 테스트 URL T-1 ~ T-20이 각 행의 기대 결과대로 동작한다.
 - CLI 명령 5개(`info` · `video` · `audio` · `subtitle` · `batch`)가 내는 종료 코드가
-  `docs/SKELETON.md` 2.1 표와 일치한다.
+  `docs/refs/SKELETON.md` 2.1 표와 일치한다.
 - README에 설치법과 사용법이 있다.

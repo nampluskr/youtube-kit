@@ -15,12 +15,13 @@ youtube-kit\
 ├─ .claude\                      hooks\ · agents\ · settings.json
 └─ docs\
    ├─ current\                   INTENT · BRIEF · DECISIONS · PLAN · PROGRESS
-   ├─ refs\                      참조한 기존 프로젝트 메모 (youtube_downloader)
-   ├─ reviews\                   적대적 검증 기록 자리 (D-18로 비어 있음)
-   ├─ ADVERSARIAL-REVIEW.md      절차 사본 (INIT 6절)
-   ├─ SCENARIOS.md               유스케이스와 테스트 URL
-   ├─ SKELETON.md                API·CLI 공개 표면
-   └─ STRUCTURE.md               이 문서
+   ├─ refs\                      버전과 무관한 참고 문서
+   │  ├─ youtube_downloader.md   참조한 기존 프로젝트 메모
+   │  ├─ ADVERSARIAL-REVIEW.md   절차 사본 (INIT 6절)
+   │  ├─ SCENARIOS.md            유스케이스와 테스트 URL
+   │  ├─ SKELETON.md             API·CLI 공개 표면
+   │  └─ STRUCTURE.md            이 문서
+   └─ reviews\                   적대적 검증 기록 자리 (D-18로 비어 있음)
 ```
 
 `src\` · `tests\` · `notebooks\` · `outputs\`는 구현 단계에서 처음 쓸 때 만든다.
@@ -58,10 +59,8 @@ youtube-kit\
    │  ├─ DECISIONS.md
    │  ├─ PLAN.md
    │  └─ PROGRESS.md
-   ├─ refs\ · reviews\ · ADVERSARIAL-REVIEW.md
-   ├─ SCENARIOS.md
-   ├─ SKELETON.md
-   ├─ STRUCTURE.md
+   ├─ refs\                      youtube_downloader · ADVERSARIAL-REVIEW · SCENARIOS · SKELETON · STRUCTURE
+   ├─ reviews\
    └─ history\                   첫 버전 마감 때 생긴다
 ```
 
@@ -75,7 +74,8 @@ youtube-kit\
 | `notebooks\` | 노트북에서 함수를 직접 부르며 결과를 확인하는 사용 예. 유스케이스마다 한 권. SCENARIOS의 테스트 URL을 쓴다 | INTENT 1·2절, D-1, BRIEF 5절 |
 | `outputs\` | 노트북에서 `out_dir`로 지정해 받은 파일(`<id>.meta.json`, 동영상·음성·자막)을 저장한다. `.gitignore`에 들어 있다 | — |
 | `docs\current\` | 이번 버전의 기획 문서 | INIT 4절 |
-| `docs\` 바로 아래 | 버전과 무관한 참고 문서 | — |
+| `docs\refs\` | 버전과 무관한 참고 문서 (기존 프로젝트 메모, 절차 사본, 시나리오, 스켈레톤, 구조) | 사용자 요청 |
+| `docs\reviews\` | 적대적 검증 기록 자리 | D-18 |
 
 ## 4. 정하지 않은 것
 

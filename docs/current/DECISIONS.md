@@ -184,8 +184,8 @@ job에 `info`는 넣지 않는다.
 
 ## D-16. SPEC을 두지 않는다
 
-**선택.** `BRIEF` 완료 조건에서 `PLAN`으로 바로 간다. `docs/SCENARIOS.md` ·
-`docs/SKELETON.md`는 참고 문서로 둔다.
+**선택.** `BRIEF` 완료 조건에서 `PLAN`으로 바로 간다. `docs/refs/SCENARIOS.md` ·
+`docs/refs/SKELETON.md`는 참고 문서로 둔다.
 
 **근거.** 미정.
 
@@ -204,7 +204,7 @@ job에 `info`는 넣지 않는다.
 ## D-18. 반대 벤더 적대적 검증을 하지 않는다
 
 **선택.** 필수 통과 Phase를 두지 않는다. 워크스페이스 규칙의 예외로 명시한다. 그 대신
-바뀐 사용자 요청 API 인터페이스(`docs/SKELETON.md`)와 주피터 노트북 검증(`notebooks\`,
+바뀐 사용자 요청 API 인터페이스(`docs/refs/SKELETON.md`)와 주피터 노트북 검증(`notebooks\`,
 PLAN 각 Phase의 완료 조건)으로 확인한다.
 
 **근거.** 구현은 반대 벤더 적대적 검증을 이미 거친 기존 `youtube_downloader` 코드를
@@ -232,7 +232,7 @@ PLAN 각 Phase의 완료 조건)으로 확인한다.
 
 **선택.** `src\<패키지 이름>\` 폴더를 두지 않고 `src\` 아래에 `__init__.py` · `cli.py` 등을
 바로 둔다. `pyproject.toml`이 `src\`를 패키지 이름 `youtube_kit`에 연결해, 부르는 방법은
-`import youtube_kit as yk` 그대로다 (`docs/STRUCTURE.md` 2절).
+`import youtube_kit as yk` 그대로다 (`docs/refs/STRUCTURE.md` 2절).
 
 **근거.** 미정.
 

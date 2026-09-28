@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "youtube_kit"
+version = "0.1.0"
+description = "Deterministic YouTube subtitle, metadata, and media extractor"
+requires-python = ">=3.11"
+dependencies = [
+    "yt-dlp>=2026.08.19",
+]
+
+[project.scripts]
+youtube-kit = "youtube_kit.cli:main"
+
+[tool.setuptools.package-dir]
+youtube_kit = "src"

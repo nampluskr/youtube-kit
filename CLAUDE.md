@@ -13,6 +13,7 @@ project-workflow v0.2 기준으로 초기화됨 (2026-09-28)
 - 완료 조건은 `PLAN.md`·`backlog.json`에 적힌 것으로 판정한다. 스스로 정하지 않는다
 - 요구가 바뀌면 `BRIEF.md`·`PLAN.md`부터 고친다. 코드로 우회하지 않는다 (SPEC 없음, v0.1 D-16)
 - 되돌릴 수 없는 작업(배포·삭제·외부 상태 변경)은 먼저 묻는다
+- 파이썬은 `C:\winpython\WPy64-31180_cpu\python-3.11.8.amd64\python.exe`만 쓴다. PATH의 `python`은 Store 바로 가기다. 노트북 커널은 `youtube-kit`
 
 <!--
 아래에 이 프로젝트 고유의 제약을 추가한다.

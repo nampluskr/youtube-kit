@@ -47,7 +47,7 @@ tools: Read, Grep, Glob, Bash
 
 너는 구현자와 **같은 벤더·같은 세션**이다. 구현할 때 놓친 것을 여기서도 놓칠 수
 있다. 전건 충족으로 보고하더라도 그것이 Phase를 닫는 근거가 되지 않는다 —
-다음은 `docs/ADVERSARIAL-REVIEW.md`의 **반대 벤더 검토**다. 보고 마지막에 한 줄
+다음은 `docs/refs/ADVERSARIAL-REVIEW.md`의 **반대 벤더 검토**다. 보고 마지막에 한 줄
 적는다.
 
 ```
