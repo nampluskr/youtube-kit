@@ -1,33 +1,39 @@
-> 작성일: 2026-09-28 · 상태: **초안 — 사용자 검토 대기**
+> 작성일: 2026-09-28 · 수정일: 2026-09-28 · 상태: **착수 완료 (INIT 모드 C)**
 
 # 예상 폴더 구조 — youtube-kit
 
-기획 단계인 지금의 구조와, 착수(`INIT.md` 모드 A) 뒤 구현이 끝났을 때의 예상 구조를 적는다.
+착수(`INIT.md` 모드 C) 직후인 지금의 구조와, 구현이 끝났을 때의 예상 구조를 적는다.
 이 문서는 구조만 정한다. 파일을 미리 만들지 않는다.
 
-## 1. 지금 — 기획 (`_ideas\youtube-kit`)
+## 1. 지금 — 착수 직후 (`D:\projects\youtube-kit`)
 
 ```
-_ideas\youtube-kit\
-├─ INTENT.md
-├─ BRIEF.md
-├─ DECISIONS.md
-├─ PLAN.md
+youtube-kit\
+├─ README.md                     개요
+├─ CLAUDE.md · AGENTS.md         하네스 규칙
+├─ .gitignore                    outputs\ 포함
+├─ .claude\                      hooks\ · agents\ · settings.json
 └─ docs\
-   ├─ SCENARIOS.md       유스케이스와 테스트 URL
-   ├─ SKELETON.md        API·CLI 공개 표면
-   └─ STRUCTURE.md       이 문서
+   ├─ current\                   INTENT · BRIEF · DECISIONS · PLAN · PROGRESS
+   ├─ refs\                      참조한 기존 프로젝트 메모 (youtube_downloader)
+   ├─ reviews\                   적대적 검증 기록 자리 (D-18로 비어 있음)
+   ├─ ADVERSARIAL-REVIEW.md      절차 사본 (INIT 6절)
+   ├─ SCENARIOS.md               유스케이스와 테스트 URL
+   ├─ SKELETON.md                API·CLI 공개 표면
+   └─ STRUCTURE.md               이 문서
 ```
+
+`src\` · `tests\` · `notebooks\` · `outputs\`는 구현 단계에서 처음 쓸 때 만든다.
 
 ## 2. 착수 후 — 구현 완료 시점 (`D:\projects\youtube-kit`)
 
 ```
 youtube-kit\
 ├─ README.md                     개요·설치·사용법 (DOC-SCHEMA 9절)
-├─ CLAUDE.md                     하네스 (INIT 6절)
+├─ CLAUDE.md · AGENTS.md         하네스 (INIT 6절)
 ├─ pyproject.toml                src\를 패키지 youtube_kit으로 연결, 명령 youtube-kit
-├─ .gitignore
-├─ .claude\                      하네스: rules\ · hooks\ · agents\ · settings.json
+├─ .gitignore                    outputs\ 포함
+├─ .claude\                      하네스: hooks\ · agents\ · settings.json
 │
 ├─ src\                          패키지 폴더를 따로 두지 않고 바로 코드를 둔다
 │  ├─ __init__.py                공개 표면: info · video · audio · subtitle · batch, 예외 5종
@@ -43,15 +49,16 @@ youtube-kit\
 │  ├─ 04_subtitle.ipynb          UC-4 자막 다운로드
 │  └─ 05_batch.ipynb             UC-5 일괄 수행
 │
-├─ outputs\                      노트북이 받은 파일을 저장하는 폴더 (out_dir)
+├─ outputs\                      노트북이 받은 파일을 저장하는 폴더 (out_dir). git에 넣지 않는다
 │
 └─ docs\
-   ├─ current\                   INIT가 루트 문서를 옮겨 온다
+   ├─ current\                   이번 버전 문서
    │  ├─ INTENT.md
    │  ├─ BRIEF.md
    │  ├─ DECISIONS.md
    │  ├─ PLAN.md
-   │  └─ PROGRESS.md             INIT가 만든다
+   │  └─ PROGRESS.md
+   ├─ refs\ · reviews\ · ADVERSARIAL-REVIEW.md
    ├─ SCENARIOS.md
    ├─ SKELETON.md
    ├─ STRUCTURE.md
@@ -66,7 +73,7 @@ youtube-kit\
 | `src\cli.py` | CLI 명령 `youtube-kit`. API와 1:1 대응 | SKELETON 2절, D-2 |
 | `tests\` | 자동으로 돌리는 테스트 | — |
 | `notebooks\` | 노트북에서 함수를 직접 부르며 결과를 확인하는 사용 예. 유스케이스마다 한 권. SCENARIOS의 테스트 URL을 쓴다 | INTENT 1·2절, D-1, BRIEF 5절 |
-| `outputs\` | 노트북에서 `out_dir`로 지정해 받은 파일(`<id>.meta.json`, 동영상·음성·자막)을 저장한다 | — |
+| `outputs\` | 노트북에서 `out_dir`로 지정해 받은 파일(`<id>.meta.json`, 동영상·음성·자막)을 저장한다. `.gitignore`에 들어 있다 | — |
 | `docs\current\` | 이번 버전의 기획 문서 | INIT 4절 |
 | `docs\` 바로 아래 | 버전과 무관한 참고 문서 | — |
 
@@ -74,6 +81,3 @@ youtube-kit\
 
 - `tests\`의 테스트 도구와 구성, 그리고 `notebooks\`와의 역할 나눔
   (예: 네트워크가 필요한 테스트 URL 검증을 어느 쪽에서 하는가)
-- `outputs\`를 `.gitignore`에 넣을지
-- `docs\ADVERSARIAL-REVIEW.md` · `docs\reviews\` — INIT 6절의 하네스 설치 항목이지만 D-18로
-  적대적 검증을 하지 않으므로 둘지 정해야 한다
