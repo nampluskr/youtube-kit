@@ -163,11 +163,11 @@
 | 항목 | 내용 |
 |---|---|
 | 계획 대비 | PLAN Phase 3개 / 완료 3개 (backlog 없음) |
-| 계획 외 개선 | 5건 — 참고 문서 `docs/refs/` 이동(사용자 요청), 구현 검증과 결함 수정(오류 분류·재생목록 ID·검사 순서·batch 키·노트북 보강·회귀 테스트), 파이썬 실행 환경과 노트북 커널, 참조 프로젝트 동결 반영, `docs/current/` 경로 갱신 |
+| 계획 외 개선 | 6건 — 참고 문서 `docs/refs/` 이동(사용자 요청), 구현 검증과 결함 수정(오류 분류·재생목록 ID·검사 순서·batch 키·노트북 보강·회귀 테스트), 파이썬 실행 환경과 노트북 커널, 참조 프로젝트 동결 반영, `docs/current/` 경로 갱신, 진행률 콜백·취소·stderr 정리(마감 뒤 추가, 태그 재지정) |
 | 남긴 것 | 병렬 수행(BRIEF 4절) · `youtube_library` 전환(D-15, 다음 버전) · 미검증 조건(연령 제한, 예정된 라이브·프리미어, 삭제된 영상) · 반대 벤더 적대적 검증(D-18 예외) |
-| 다음 버전으로 | `youtube_library` 인제스트를 youtube-kit으로 전환하고 `youtube_downloader` 의존을 끊는다 · batch job의 모르는 키 거부 규칙을 DECISIONS에 올릴지 · DECISIONS "미정" 근거 채우기 · `tests/test_cli.py`의 하드코딩 경로·`shell=True` · `01_info` 노트북의 하드코딩 포맷 ID · 예외를 잡아도 yt-dlp가 stderr에 `ERROR:`를 찍는 소음 · 수정한 노트북 셀의 저장된 출력이 비어 있음 |
+| 다음 버전으로 | `youtube_library` 인제스트를 youtube-kit으로 전환하고 `youtube_downloader` 의존을 끊는다 · batch job의 모르는 키 거부 규칙을 DECISIONS에 올릴지 · DECISIONS "미정" 근거 채우기 · `tests/test_cli.py`의 하드코딩 경로·`shell=True` · `01_info` 노트북의 하드코딩 포맷 ID · 수정한 노트북 셀의 저장된 출력이 비어 있음 · `progress`·`cancel` 인자와 `Cancelled` 예외를 DECISIONS에 결정으로 남길지 |
 
-**검증 게이트:** 노트북 01~05 통과, `unittest` 39건 통과(기존 31 + 오프라인 8). 반대 벤더 적대적 검증은 D-18에 따라 생략했고,
+**검증 게이트:** 노트북 01~05 통과, `unittest` 48건 통과(네트워크 31 + 오프라인 17). 반대 벤더 적대적 검증은 D-18에 따라 생략했고,
 사용자 요청으로 Claude가 Antigravity 구현을 한 차례 검증했다(위 "구현 검증과 수정").
 **승격 판정:** DECISIONS D-1 ~ D-20 중 `CLAUDE.md`로 승격할 제약 없음 — "판단하지 않는다"·"변환하지 않는다" 류는
 INTENT 3·4절이 이미 상주하며 담고, 나머지는 근거로 history에 남긴다. 실행 환경(WinPython cpu)은 이미 `CLAUDE.md`에 있다.
