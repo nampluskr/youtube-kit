@@ -5,7 +5,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 경로 | `D:\projects\_archive\260828_youtube-downloader` (2026-09-28 동결. 이전 `D:\projects\youtube_downloader`) |
-| 저장소 | `github.com/nampluskr/youtube-downloader` (이전 `youtube_downloader`) |
+| 경로 | `D:\projects\_archive\260828_youtube-downloader-old` (2026-09-28 동결. 이전 `D:\projects\youtube_downloader` → `_archive\260828_youtube-downloader`) |
+| 저장소 | `github.com/nampluskr/youtube-downloader-old` (이전 `youtube_downloader` → `youtube-downloader`. 이름은 새 기획 `youtube-downloader`로 넘어감) |
 | 참조하는 곳 | `docs/current/BRIEF.md` 1절 배경, `DECISIONS.md` D-1 · D-18 |
 | 언제 보나 | 구현 단계에서만 (D-1) |
